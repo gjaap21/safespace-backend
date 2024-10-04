@@ -80,6 +80,42 @@ const operations: Operation[] = [
     method: "DELETE",
     fields: { id: "input" },
   },
+  {
+    name: "Get Badges",
+    endpoint: "/api/badges",
+    method: "GET",
+    fields: { author: "input" },
+  },
+  {
+    name: "Give Badge",
+    endpoint: "/api/badges",
+    method: "POST",
+    fields: { type: "input" },
+  },
+  {
+    name: "Remove Badge",
+    endpoint: "/api/badges/:id",
+    method: "DELETE",
+    fields: { id: "input" },
+  },
+  {
+    name: "Get Reports",
+    endpoint: "/api/reports",
+    method: "GET",
+    fields: {},
+  },
+  {
+    name: "Create Report",
+    endpoint: "/api/reports",
+    method: "POST",
+    fields: { id: "input", info: "input" },
+  },
+  {
+    name: "Address Report (input 'true' or 'false' to verify the report's validity)",
+    endpoint: "/api/reports/:id",
+    method: "DELETE",
+    fields: { validity: "input" },
+  },
   //
   // ...
   //

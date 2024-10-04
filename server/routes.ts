@@ -2,7 +2,8 @@ import { ObjectId } from "mongodb";
 
 import { Router, getExpressRouter } from "./framework/router";
 
-import { Authing, Friending, Posting, Sessioning } from "./app";
+import { Authing, Badging, Friending, Posting, Reporting, Sessioning } from "./app";
+import { BadgeType } from "./concepts/badging";
 import { PostOptions } from "./concepts/posting";
 import { SessionDoc } from "./concepts/sessioning";
 import Responses from "./responses";
@@ -151,6 +152,96 @@ class Routes {
     const user = Sessioning.getUser(session);
     const fromOid = (await Authing.getUserByUsername(from))._id;
     return await Friending.rejectRequest(fromOid, user);
+  }
+
+  @Router.get("/badges")
+  async getBadges(author: string) {
+    const user = (await Authing.getUserByUsername(author))._id;
+    return await Badging.getByAuthor(user);
+  }
+
+  @Router.put("/badges")
+  async addBadge(session: SessionDoc, type: string) {
+    const user = Sessioning.getUser(session);
+    return await Badging.give(user, type as BadgeType);
+  }
+
+  @Router.delete("/badges/:id")
+  async deleteBadge(session: SessionDoc, id: string) {
+    const oid = new ObjectId(id);
+    return await Badging.remove(oid);
+  }
+
+  @Router.get("/reports")
+  async getReports(session: SessionDoc) {
+    return Reporting.getReports();
+  }
+
+  @Router.put("/reports/:id")
+  async createReport(session: SessionDoc, id: string, info: string) {
+    const oid = new ObjectId(id);
+    return Reporting.create(oid, info);
+  }
+
+  @Router.delete("/reports/:id")
+  async deleteReport(session: SessionDoc, id: string, validity: Boolean) {
+    const oid = new ObjectId(id);
+    return Reporting.address(oid, validity);
+  }
+
+  @Router.get("/filters")
+  async getFilters(session: SessionDoc) {
+    // TODO
+  }
+
+  @Router.put("/filters/:id")
+  async addFilter(session: SessionDoc, id: string) {
+    // TODO
+  }
+
+  @Router.delete("/filters/:id")
+  async deleteFilter(session: SessionDoc, id: string) {
+    // TODO
+  }
+
+  @Router.patch("/filters/:id")
+  async changeIntensity(session: SessionDoc, id: string, value: number) {
+    // TODO
+  }
+
+  @Router.get("/comments")
+  async getComments(author?: string) {
+    // TODO
+  }
+
+  @Router.post("/comments/:id")
+  async createComment(session: SessionDoc, id: string, content: string) {
+    // TODO
+  }
+
+  @Router.patch("/comments/:id")
+  async updateComment(session: SessionDoc, id: string, content?: string) {
+    // TODO
+  }
+
+  @Router.delete("/comments/:id")
+  async deleteComment(session: SessionDoc, id: string) {
+    // TODO
+  }
+
+  @Router.get("/likes")
+  async getLikes(session: SessionDoc) {
+    // TODO
+  }
+
+  @Router.post("/likes/:id")
+  async addLike(session: SessionDoc, id: string) {
+    // TODO
+  }
+
+  @Router.delete("/likes/:id")
+  async removeLike(session: SessionDoc, id: string) {
+    // TODO
   }
 }
 
