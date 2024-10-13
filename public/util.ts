@@ -27,6 +27,12 @@ const operations: Operation[] = [
     fields: { username: "input", password: "input" },
   },
   {
+    name: "Create Admin",
+    endpoint: "api/admins",
+    method: "POST",
+    fields: { username: "input", password: "input" },
+  },
+  {
     name: "Login",
     endpoint: "/api/login",
     method: "POST",
@@ -57,6 +63,18 @@ const operations: Operation[] = [
     fields: { username: "input" },
   },
   {
+    name: "Get Admins",
+    endpoint: "/api/admins",
+    method: "GET",
+    fields: {},
+  },
+  {
+    name: "Admin Delete",
+    endpoint: "/api/admins/:id",
+    method: "DELETE",
+    fields: { id: "input" },
+  },
+  {
     name: "Get Posts (empty for all)",
     endpoint: "/api/posts",
     method: "GET",
@@ -66,13 +84,7 @@ const operations: Operation[] = [
     name: "Create Post",
     endpoint: "/api/posts",
     method: "POST",
-    fields: { content: "input" },
-  },
-  {
-    name: "Update Post",
-    endpoint: "/api/posts/:id",
-    method: "PATCH",
-    fields: { id: "input", content: "input", options: { backgroundColor: "input" } },
+    fields: { image: "input", caption: "input" },
   },
   {
     name: "Delete Post",
@@ -81,16 +93,34 @@ const operations: Operation[] = [
     fields: { id: "input" },
   },
   {
+    name: "Get Comments",
+    endpoint: "/api/comments",
+    method: "GET",
+    fields: { item: "input" },
+  },
+  {
+    name: "Create Comment",
+    endpoint: "/api/comments",
+    method: "POST",
+    fields: { item: "input", content: "input" },
+  },
+  {
+    name: "Delete comment",
+    endpoint: "/api/comments/:id",
+    method: "DELETE",
+    fields: { id: "input" },
+  },
+  {
     name: "Get Badges",
     endpoint: "/api/badges",
     method: "GET",
-    fields: { author: "input" },
+    fields: { user: "input" },
   },
   {
     name: "Give Badge",
     endpoint: "/api/badges",
     method: "POST",
-    fields: { type: "input" },
+    fields: { user: "input", type: "input" },
   },
   {
     name: "Remove Badge",
@@ -111,10 +141,52 @@ const operations: Operation[] = [
     fields: { id: "input", info: "input" },
   },
   {
-    name: "Address Report (input 'true' or 'false' to verify the report's validity)",
-    endpoint: "/api/reports/:id",
+    name: "Address Report",
+    endpoint: "/api/reports",
     method: "DELETE",
-    fields: { validity: "input" },
+    fields: { id: "input", validity: "input" },
+  },
+  {
+    name: "Get Filters",
+    endpoint: "/api/filters",
+    method: "GET",
+    fields: {},
+  },
+  {
+    name: "Add Filter",
+    endpoint: "/api/filters",
+    method: "POST",
+    fields: { filterUser: "input" },
+  },
+  {
+    name: "Remove Filter",
+    endpoint: "/api/filters/:id",
+    method: "DELETE",
+    fields: { filterUser: "input" },
+  },
+  {
+    name: "Get Item Likes",
+    endpoint: "/api/likes/items",
+    method: "GET",
+    fields: { item: "input" },
+  },
+  {
+    name: "Get User's Likes",
+    endpoint: "/api/likes/users",
+    method: "GET",
+    fields: { id: "input" },
+  },
+  {
+    name: "Like Item",
+    endpoint: "/api/likes",
+    method: "POST",
+    fields: { item: "input" },
+  },
+  {
+    name: "Unlike Item",
+    endpoint: "/api/likes/:id",
+    method: "DELETE",
+    fields: { item: "input" },
   },
   //
   // ...

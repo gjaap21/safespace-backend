@@ -2,8 +2,8 @@ import { ObjectId } from "mongodb";
 
 import { Router, getExpressRouter } from "./framework/router";
 
-import { Authing, Badging, Friending, Posting, Reporting, Sessioning } from "./app";
-import { BadgeType } from "./concepts/badging";
+import { Authing, Badging, Blurring, Commenting, Friending, Liking, Posting, Reporting, Sessioning } from "./app";
+import { BadgeType, BadgeTypes } from "./concepts/badging";
 import { PostOptions } from "./concepts/posting";
 import { SessionDoc } from "./concepts/sessioning";
 import Responses from "./responses";
@@ -37,6 +37,29 @@ class Routes {
   async createUser(session: SessionDoc, username: string, password: string) {
     Sessioning.isLoggedOut(session);
     return await Authing.create(username, password);
+  }
+
+  @Router.get("/admins")
+  async getAdmins() {
+    return await Authing.getAdmins();
+  }
+
+  @Router.post("/admins")
+  async createAdmin(session: SessionDoc, username: string, password: string) {
+    const user = Sessioning.getUser(session);
+    await Authing.assertUserIsAdmin(user);
+    return await Authing.createAdmin(username, password);
+  }
+
+  @Router.delete("/admins/:id")
+  async adminDeleteItem(session: SessionDoc, id: string) {
+    const user = Sessioning.getUser(session);
+    await Authing.assertUserIsAdmin(user);
+    const oid = new ObjectId(id);
+    await Posting.delete(oid);
+    await Commenting.delete(oid);
+    await Authing.delete(oid);
+    return { msg: "Successfully deleted" };
   }
 
   @Router.patch("/users/username")
@@ -85,9 +108,10 @@ class Routes {
   }
 
   @Router.post("/posts")
-  async createPost(session: SessionDoc, content: string, options?: PostOptions) {
+  async createPost(session: SessionDoc, image: string, caption: string, options?: PostOptions) {
     const user = Sessioning.getUser(session);
-    const created = await Posting.create(user, content, options);
+    const created = await Posting.create(user, image, caption, options);
+    await Liking.initItem(created.post!._id);
     return { msg: created.msg, post: await Responses.post(created.post) };
   }
 
@@ -155,93 +179,152 @@ class Routes {
   }
 
   @Router.get("/badges")
-  async getBadges(author: string) {
-    const user = (await Authing.getUserByUsername(author))._id;
-    return await Badging.getByAuthor(user);
+  async getBadges(user: string) {
+    const author = (await Authing.getUserByUsername(user))._id;
+    return await Badging.getByAuthor(author);
   }
 
-  @Router.put("/badges")
-  async addBadge(session: SessionDoc, type: string) {
-    const user = Sessioning.getUser(session);
-    return await Badging.give(user, type as BadgeType);
+  @Router.post("/badges")
+  async giveBadge(session: SessionDoc, user: string, type: string) {
+    const admin = Sessioning.getUser(session);
+    await Authing.assertUserIsAdmin(admin);
+    const oid = new ObjectId(user);
+    return await Badging.give(oid, type as BadgeType);
   }
 
   @Router.delete("/badges/:id")
   async deleteBadge(session: SessionDoc, id: string) {
     const oid = new ObjectId(id);
-    return await Badging.remove(oid);
+    const badge = await Badging.getBadge(oid);
+    const type = badge?.type;
+    if (type === BadgeTypes.SHAME) {
+      const user = Sessioning.getUser(session);
+      await Authing.assertUserIsAdmin(user);
+      return await Badging.remove(oid);
+    } else return await Badging.remove(oid);
   }
 
   @Router.get("/reports")
   async getReports(session: SessionDoc) {
-    return Reporting.getReports();
+    const user = Sessioning.getUser(session);
+    await Authing.assertUserIsAdmin(user);
+    return await Reporting.getReports();
   }
 
-  @Router.put("/reports/:id")
-  async createReport(session: SessionDoc, id: string, info: string) {
+  @Router.post("/reports")
+  async createReport(id: string, info: string) {
     const oid = new ObjectId(id);
-    return Reporting.create(oid, info);
+    return await Reporting.create(oid, info);
   }
 
-  @Router.delete("/reports/:id")
-  async deleteReport(session: SessionDoc, id: string, validity: Boolean) {
+  @Router.delete("/reports")
+  async addressReport(session: SessionDoc, id: string, validity: string) {
+    const user = Sessioning.getUser(session);
+    await Authing.assertUserIsAdmin(user);
     const oid = new ObjectId(id);
-    return Reporting.address(oid, validity);
+    const report = await Reporting.getReport(oid);
+    const itemId = report!.item;
+    const post = await Posting.getPost(itemId);
+    const comment = await Commenting.getComment(itemId);
+    const author = post ? post.author : comment ? comment.author : undefined;
+    if (validity.toLowerCase() === "true") {
+      await Badging.give(author!, BadgeTypes.SHAME);
+      const likers = await Liking.getItemLikers(itemId);
+      await Promise.all(likers.map((liker) => Badging.give(liker, BadgeTypes.SHAME)));
+      await Posting.delete(itemId);
+      await Commenting.delete(itemId);
+    }
+    return await Reporting.remove(oid);
   }
 
   @Router.get("/filters")
   async getFilters(session: SessionDoc) {
-    // TODO
+    const user = Sessioning.getUser(session);
+    return await Blurring.getFilters(user);
   }
 
-  @Router.put("/filters/:id")
-  async addFilter(session: SessionDoc, id: string) {
-    // TODO
+  @Router.post("/filters")
+  async addFilter(session: SessionDoc, filterUser: string) {
+    const user = Sessioning.getUser(session);
+    const someUser = new ObjectId(filterUser);
+    return await Blurring.addFilter(user, someUser);
   }
 
   @Router.delete("/filters/:id")
-  async deleteFilter(session: SessionDoc, id: string) {
-    // TODO
+  async deleteFilter(session: SessionDoc, filterUser: string) {
+    const user = Sessioning.getUser(session);
+    const someUser = new ObjectId(filterUser);
+    return await Blurring.removeFilter(user, someUser);
   }
 
-  @Router.patch("/filters/:id")
-  async changeIntensity(session: SessionDoc, id: string, value: number) {
-    // TODO
+  @Router.post("/blur")
+  async blur(session: SessionDoc, id: string) {
+    const user = Sessioning.getUser(session);
+    const postId = new ObjectId(id);
+    const post = await Posting.getPost(postId);
+    if (post) {
+      const inFilter = await Blurring.inFilter(user, post.author);
+      return inFilter ? await Blurring.blur(post.image) : post.image;
+    }
+  }
+
+  @Router.post("/blur/:intensity")
+  async changeIntensity(id: string, intensity: string) {
+    const postId = new ObjectId(id);
+    const blurIntensity = Number(intensity);
+    const post = await Posting.getPost(postId);
+    if (post) {
+      return await Blurring.blur(post.image, blurIntensity);
+    }
   }
 
   @Router.get("/comments")
-  async getComments(author?: string) {
-    // TODO
+  async getItemComments(item?: string) {
+    if (item) {
+      const oid = new ObjectId(item);
+      return await Commenting.getItemComments(oid);
+    } else return await Commenting.getComments();
   }
 
-  @Router.post("/comments/:id")
-  async createComment(session: SessionDoc, id: string, content: string) {
-    // TODO
-  }
-
-  @Router.patch("/comments/:id")
-  async updateComment(session: SessionDoc, id: string, content?: string) {
-    // TODO
+  @Router.post("/comments")
+  async createComment(session: SessionDoc, item: string, content: string) {
+    const user = Sessioning.getUser(session);
+    const oid = new ObjectId(item);
+    return await Commenting.create(user, oid, content);
   }
 
   @Router.delete("/comments/:id")
   async deleteComment(session: SessionDoc, id: string) {
-    // TODO
+    const user = Sessioning.getUser(session);
+    const oid = new ObjectId(id);
+    await Commenting.assertAuthorIsUser(oid, user);
+    return Commenting.delete(oid);
   }
 
-  @Router.get("/likes")
-  async getLikes(session: SessionDoc) {
-    // TODO
+  @Router.get("/likes/items")
+  async getItemLikes(item: string) {
+    const oid = new ObjectId(item);
+    return await Liking.getItemLikeCount(oid);
   }
 
-  @Router.post("/likes/:id")
-  async addLike(session: SessionDoc, id: string) {
-    // TODO
+  @Router.get("/likes/users")
+  async getUserLikes(id: string) {
+    const oid = new ObjectId(id);
+    return await Liking.getUserLikes(oid);
+  }
+
+  @Router.post("/likes")
+  async addLike(session: SessionDoc, item: string) {
+    const user = Sessioning.getUser(session);
+    const oid = new ObjectId(item);
+    return await Liking.like(user, oid);
   }
 
   @Router.delete("/likes/:id")
-  async removeLike(session: SessionDoc, id: string) {
-    // TODO
+  async removeLike(session: SessionDoc, item: string) {
+    const user = Sessioning.getUser(session);
+    const oid = new ObjectId(item);
+    return await Liking.unlike(user, oid);
   }
 }
 

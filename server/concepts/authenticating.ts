@@ -24,15 +24,30 @@ export default class AuthenticatingConcept {
    */
   constructor(collectionName: string) {
     this.users = new DocCollection<UserDoc>(collectionName);
-
     // Create index on username to make search queries for it performant
     void this.users.collection.createIndex({ username: 1 });
+
+    // Create original admin account that has the ability to create other admins
+    this.createOGAdmin();
   }
 
   async create(username: string, password: string) {
     await this.assertGoodCredentials(username, password);
     const _id = await this.users.createOne({ username, password, role: UserRole.USER });
     return { msg: "User created successfully!", user: await this.users.readOne({ _id }) };
+  }
+
+  async createAdmin(username: string, password: string) {
+    await this.assertGoodCredentials(username, password);
+    const _id = await this.users.createOne({ username, password, role: UserRole.ADMIN });
+    return { msg: "Admin user created successfully!", user: await this.users.readOne({ _id }) };
+  }
+
+  private async createOGAdmin() {
+    const admins = await this.getAdmins();
+    if (admins.length === 0) {
+      await this.users.createOne({ username: "gjaap", password: "secret123", role: UserRole.ADMIN });
+    }
   }
 
   private redactPassword(user: UserDoc): Omit<UserDoc, "password"> {
@@ -68,6 +83,12 @@ export default class AuthenticatingConcept {
   async getUsers(username?: string) {
     // If username is undefined, return all users by applying empty filter
     const filter = username ? { username } : {};
+    const users = (await this.users.readMany(filter)).map(this.redactPassword);
+    return users;
+  }
+
+  async getAdmins() {
+    const filter = { role: UserRole.ADMIN };
     const users = (await this.users.readMany(filter)).map(this.redactPassword);
     return users;
   }
@@ -108,6 +129,13 @@ export default class AuthenticatingConcept {
     const maybeUser = await this.users.readOne({ _id });
     if (maybeUser === null) {
       throw new NotFoundError(`User not found!`);
+    }
+  }
+
+  async assertUserIsAdmin(_id: ObjectId) {
+    const user = await this.users.readOne({ _id });
+    if (user!.role !== UserRole.ADMIN) {
+      throw new NotAllowedError(`User does not have admin privileges!`);
     }
   }
 

@@ -9,7 +9,8 @@ export interface PostOptions {
 
 export interface PostDoc extends BaseDoc {
   author: ObjectId;
-  content: string;
+  image: string;
+  caption: string;
   options?: PostOptions;
 }
 
@@ -26,9 +27,14 @@ export default class PostingConcept {
     this.posts = new DocCollection<PostDoc>(collectionName);
   }
 
-  async create(author: ObjectId, content: string, options?: PostOptions) {
-    const _id = await this.posts.createOne({ author, content, options });
+  async create(author: ObjectId, image: string, caption: string, options?: PostOptions) {
+    const url = this.getImageURL(image);
+    const _id = await this.posts.createOne({ author, image: url, caption, options });
     return { msg: "Post successfully created!", post: await this.posts.readOne({ _id }) };
+  }
+
+  async getPost(_id: ObjectId) {
+    return await this.posts.readOne({ _id });
   }
 
   async getPosts() {
@@ -40,16 +46,25 @@ export default class PostingConcept {
     return await this.posts.readMany({ author });
   }
 
-  async update(_id: ObjectId, content?: string, options?: PostOptions) {
+  async update(_id: ObjectId, caption?: string, options?: PostOptions) {
     // Note that if content or options is undefined, those fields will *not* be updated
     // since undefined values for partialUpdateOne are ignored.
-    await this.posts.partialUpdateOne({ _id }, { content, options });
+    await this.posts.partialUpdateOne({ _id }, { caption, options });
     return { msg: "Post successfully updated!" };
   }
 
   async delete(_id: ObjectId) {
     await this.posts.deleteOne({ _id });
     return { msg: "Post deleted successfully!" };
+  }
+
+  // Converts a regular viewing link that Google Drive gives users into a direct viewing link
+  private getImageURL(url: string) {
+    const regex = /(?:\/d\/|id=)([^\/?]+)/;
+    const matches = url.match(regex);
+    const fileId = matches ? matches[1] : null;
+    if (fileId === null) throw new NotFoundError("Image link is not in the appropriate format.");
+    return `https://drive.google.com/uc?export=view&id=${fileId}`;
   }
 
   async assertAuthorIsUser(_id: ObjectId, user: ObjectId) {
@@ -61,6 +76,19 @@ export default class PostingConcept {
       throw new PostAuthorNotMatchError(user, _id);
     }
   }
+
+  // Realized displaying is more of a front-end thing but might want this code later so leaving it
+  // async displayPostContent(canvas: HTMLCanvasElement, post: PostDoc) {
+  //   const container = document.getElementById("canvasContainer");
+  //   if (container) {
+  //     container.appendChild(canvas);
+  //   }
+
+  //   const captionContainer = document.getElementById("captionContainer");
+  //   if (captionContainer) {
+  //     captionContainer.innerText = post.caption;
+  //   }
+  // }
 }
 
 export class PostAuthorNotMatchError extends NotAllowedError {

@@ -34,13 +34,17 @@ export default class ReportingConcept {
     return await this.reports.readMany({}, { sort: { _id: -1 } });
   }
 
-  async address(_id: ObjectId, validity: Boolean) {
+  async getReport(_id: ObjectId) {
+    // Returns all reports! You might want to page for better client performance
+    return await this.reports.readOne({ _id });
+  }
+
+  async remove(_id: ObjectId) {
     const report = await this.reports.readOne({ _id });
     if (!report) {
       throw new NotFoundError(`Report ${_id} does not exist!`);
     }
 
-    await this.reports.deleteOne({ _id });
-    return { msg: "Report addressed successfully!" };
+    return await this.reports.deleteOne({ _id });
   }
 }

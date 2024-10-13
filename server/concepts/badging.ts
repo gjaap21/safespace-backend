@@ -1,11 +1,11 @@
 import { ObjectId } from "mongodb";
 
 import DocCollection, { BaseDoc } from "../framework/doc";
-import { NotAllowedError, NotFoundError } from "./errors";
+import { NotFoundError } from "./errors";
 
 export type BadgeType = "shame" | "verified"; // can add more later
 
-const BadgeTypes: Record<string, BadgeType> = {
+export const BadgeTypes: Record<string, BadgeType> = {
   SHAME: "shame",
   VERIFIED: "verified",
 };
@@ -32,8 +32,14 @@ export default class BadgingConcept {
   }
 
   async give(author: ObjectId, type: BadgeType) {
-    const _id = await this.badges.createOne({ author, type });
+    const check = await this.badges.readOne({ author, type });
+
+    const _id = check ? check._id : await this.badges.createOne({ author, type });
     return { msg: "Badge successfully created!", badge: await this.badges.readOne({ _id }) };
+  }
+
+  async getBadge(_id: ObjectId) {
+    return await this.badges.readOne({ _id });
   }
 
   async getByAuthor(author: ObjectId) {
@@ -44,8 +50,6 @@ export default class BadgingConcept {
     const badge = await this.badges.readOne({ _id });
     if (!badge) {
       throw new NotFoundError(`Badge ${_id} does not exist!`);
-    } else if (badge.type === BadgeTypes.SHAME) {
-      throw new NotAllowedError(`User cannot manually remove a badge of shame!`);
     }
     await this.badges.deleteOne({ _id });
     return { msg: "Badge deleted successfully!" };
